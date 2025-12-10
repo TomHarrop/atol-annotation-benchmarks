@@ -81,15 +81,15 @@ rule annotation_qc:
     params:
         lineage_dataset=subpath(input.busco_lineage, basename=True),
         lineages_path=subpath(input.busco_lineage, parent=True),
-        mem_gb=lambda wildcards, resources: int(resources.mem_mb / 1024),
+        mem_gb=lambda wildcards, resources: int(resources.mem_mb / 1000),
         outdir=subpath(output[0], parent=True),
         taxid=select_taxid,
     threads: 16
     resources:
-        mem="64GiB",
+        mem="64GB",
         runtime=60,
     container:
-        "docker://quay.io/biocontainers/atol-qc-annotation:0.1.1--pyhdfd78af_0"
+        "docker://quay.io/biocontainers/atol-qc-annotation:0.1.2--pyhdfd78af_0"
     shell:
         "atol-qc-annotation "
         "--threads {threads} "
