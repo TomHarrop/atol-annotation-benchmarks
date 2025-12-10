@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+
+import pandas as pd
+
+
+# expected output
+
+qc_filenames = [
+    "agat.fix_cds_phases.gff",
+    "agat.stats.yaml",
+    "agat.stats",
+    "omark_summary.json",
+    "proteins.faa",
+    "short_summary.specific.busco.json",
+    "short_summary.specific.busco.txt",
+]
+
+annotation_manifest_file = Path("config", "annotation_manifest.csv")
+annotation_manifest = pd.read_csv(
+    annotation_manifest_file, index_col="organism_grouping_key"
+)
+
+# which BUSCO datasets do we need
+busco_odb_verion = "odb10"
+busco_dataset_names = sorted(set(annotation_manifest["busco_dataset_name"]))
+busco_lineage_names = {k: f"{k}_{busco_odb_verion}" for k in busco_dataset_names}
+
+# which datasets are we using
+all_grouping_keys = sorted(set(annotation_manifest.index))
+
+
+include: "rules/download_busco_dataset.smk"
+
+
+wildcard_constraints:
+    lineage="|".join(busco_lineage_names.values()),
+    organism_grouping_key="|".join(all_grouping_keys),
+    input_type="|".join(["genome", "annotation"]),
+    ext="|".join(sorted(set(annotation_manifest["format"])) + ["fa"]),
+
+
+def get_input_url(wildcards):
+    my_manifest = annotation_manifest.loc[wildcards.organism_grouping_key]
+    if wildcards.input_type == "genome":
+        url = my_manifest["genome_url"]
+    elif wildcards.input_type == "annotation":
+        # TODO: check multiple ext
+        url = my_manifest["annot_url"]
+    else:
+        raise ValueError(f"Unknown input_type {input_type}")
+    return url
+
+
+def select_busco_lineage(wildcards):
+    my_manifest = annotation_manifest.loc[wildcards.organism_grouping_key]
+    busco_lineage = (
+        "resources/busco_databases/"
+        f"{my_manifest.busco_dataset_name}_{busco_odb_verion}"
+    )
+    return busco_lineage
+
+
+def select_taxid(wildcards):
+    return annotation_manifest.loc[wildcards.organism_grouping_key].taxon_id
+
+
+rule annotation_qc:
+    input:
+        annotation="resources/annotation/{organism_grouping_key}.gff3",
+        busco_lineage=select_busco_lineage,
+        db="data/omark/LUCA.h5",
+        ete_ncbi_db="data/omark/ete/taxa.sqlite",
+        fasta="resources/genome/{organism_grouping_key}.fa",
+    output:
+        [
+            Path("results/annotation_qc/{organism_grouping_key}", x).as_posix()
+            for x in qc_filenames
+        ],
+    log:
+        "logs/annotation_qc/{organism_grouping_key}.log",
+    params:
+        lineage_dataset=subpath(input.busco_lineage, basename=True),
+        lineages_path=subpath(input.busco_lineage, parent=True),
+        mem_gb=lambda wildcards, resources: int(resources.mem_mb / 1024),
+        outdir=subpath(output[0], parent=True),
+        taxid=select_taxid,
+    threads: 12
+    resources:
+        mem="48GiB",
+    container:
+        "docker://quay.io/biocontainers/atol-qc-annotation:0.1.1--pyhdfd78af_0"
+    shell:
+        "atol-qc-annotation "
+        "--threads {threads} "
+        "--mem {params.mem_gb} "
+        "--fasta {input.fasta} "
+        "--gtf {input.annotation} "
+        "--lineage_dataset {params.lineage_dataset} "
+        "--lineages_path {params.lineages_path} "
+        "--db {input.db} "
+        "--taxid {params.taxid} "
+        "--ete_ncbi_db {input.fasta} "
+        "--outdir {params.outdir} "
+        "--logs {params.outdir}/logs "
+        "&> {log}"
+
+
+rule download_galaxy_file:
+    output:
+        file="resources/{input_type}/{organism_grouping_key}.{ext}",
+    params:
+        url=get_input_url,
+    log:
+        "logs/download_galaxy_file/{input_type}.{organism_grouping_key}.{ext}.log",
+    container:
+        "docker://quay.io/biocontainers/gnu-wget:1.18--hb829ee6_10"
+    shell:
+        "wget {params.url} -O {output} &> {log}"
+
+
+rule target:
+    default_target: True
+    input:
+        "results/annotation_qc/taxid2792576/agat.stats",
