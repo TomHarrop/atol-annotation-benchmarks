@@ -3,6 +3,31 @@
 import pandas as pd
 
 
+def get_input_url(wildcards):
+    my_manifest = annotation_manifest.loc[wildcards.organism_grouping_key]
+    if wildcards.input_type == "genome":
+        url = my_manifest["genome_url"]
+    elif wildcards.input_type == "annotation":
+        # TODO: check multiple ext
+        url = my_manifest["annot_url"]
+    else:
+        raise ValueError(f"Unknown input_type {input_type}")
+    return url
+
+
+def select_busco_lineage(wildcards):
+    my_manifest = annotation_manifest.loc[wildcards.organism_grouping_key]
+    busco_lineage = (
+        "resources/busco_databases/"
+        f"{my_manifest.busco_dataset_name}_{busco_odb_verion}"
+    )
+    return busco_lineage
+
+
+def select_taxid(wildcards):
+    return annotation_manifest.loc[wildcards.organism_grouping_key].taxon_id
+
+
 # expected output
 
 qc_filenames = [
@@ -37,31 +62,6 @@ wildcard_constraints:
     organism_grouping_key="|".join(all_grouping_keys),
     input_type="|".join(["genome", "annotation"]),
     ext="|".join(sorted(set(annotation_manifest["format"])) + ["fa"]),
-
-
-def get_input_url(wildcards):
-    my_manifest = annotation_manifest.loc[wildcards.organism_grouping_key]
-    if wildcards.input_type == "genome":
-        url = my_manifest["genome_url"]
-    elif wildcards.input_type == "annotation":
-        # TODO: check multiple ext
-        url = my_manifest["annot_url"]
-    else:
-        raise ValueError(f"Unknown input_type {input_type}")
-    return url
-
-
-def select_busco_lineage(wildcards):
-    my_manifest = annotation_manifest.loc[wildcards.organism_grouping_key]
-    busco_lineage = (
-        "resources/busco_databases/"
-        f"{my_manifest.busco_dataset_name}_{busco_odb_verion}"
-    )
-    return busco_lineage
-
-
-def select_taxid(wildcards):
-    return annotation_manifest.loc[wildcards.organism_grouping_key].taxon_id
 
 
 rule annotation_qc:
@@ -124,4 +124,7 @@ rule download_galaxy_file:
 rule target:
     default_target: True
     input:
-        "results/annotation_qc/taxid168868/agat.stats",
+        expand(
+            "results/annotation_qc/{organism_grouping_key}/agat.stats",
+            organism_grouping_key=all_grouping_keys,
+        ),
