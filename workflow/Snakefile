@@ -84,9 +84,10 @@ rule annotation_qc:
         mem_gb=lambda wildcards, resources: int(resources.mem_mb / 1024),
         outdir=subpath(output[0], parent=True),
         taxid=select_taxid,
-    threads: 12
+    threads: 16
     resources:
-        mem="48GiB",
+        mem="64GiB",
+        runtime=60,
     container:
         "docker://quay.io/biocontainers/atol-qc-annotation:0.1.1--pyhdfd78af_0"
     shell:
@@ -112,6 +113,8 @@ rule download_galaxy_file:
         url=get_input_url,
     log:
         "logs/download_galaxy_file/{input_type}.{organism_grouping_key}.{ext}.log",
+    resources:
+        time=10,
     container:
         "docker://quay.io/biocontainers/gnu-wget:1.18--hb829ee6_10"
     shell:
