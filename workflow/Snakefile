@@ -99,7 +99,7 @@ rule annotation_qc:
         "--lineages_path {params.lineages_path} "
         "--db {input.db} "
         "--taxid {params.taxid} "
-        "--ete_ncbi_db {input.fasta} "
+        "--ete_ncbi_db {input.ete_ncbi_db} "
         "--outdir {params.outdir} "
         "--logs {params.outdir}/logs "
         "&> {log}"
@@ -121,4 +121,4 @@ rule download_galaxy_file:
 rule target:
     default_target: True
     input:
-        "results/annotation_qc/taxid2792576/agat.stats",
+        "results/annotation_qc/taxid168868/agat.stats",
