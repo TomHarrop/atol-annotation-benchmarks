@@ -66,7 +66,7 @@ wildcard_constraints:
 
 rule annotation_qc:
     input:
-        annotation="resources/annotation/{organism_grouping_key}.gff3",
+        annotation="results/annooddities/{organism_grouping_key}/AnnoOddities.gff",
         busco_lineage=select_busco_lineage,
         db="data/omark/LUCA.h5",
         ete_ncbi_db="data/omark/ete/taxa.sqlite",
@@ -89,7 +89,7 @@ rule annotation_qc:
         mem="64GB",
         runtime=60,
     container:
-        "docker://quay.io/biocontainers/atol-qc-annotation:0.1.2--pyhdfd78af_0"
+        "docker://quay.io/biocontainers/atol-qc-annotation:0.1.3--pyhdfd78af_0"
     shell:
         "atol-qc-annotation "
         "--threads {threads} "
@@ -104,6 +104,38 @@ rule annotation_qc:
         "--outdir {params.outdir} "
         "--logs {params.outdir}/logs "
         "&> {log}"
+
+
+rule annooddities:
+    input:
+        annotation="resources/annotation/{organism_grouping_key}.gff3",
+        fasta="resources/genome/{organism_grouping_key}.fa",
+    output:
+        stats="results/annooddities/{organism_grouping_key}/AnnoOddities.combined_statistics.json",
+        gff="results/annooddities/{organism_grouping_key}/AnnoOddities.gff",
+        archive="results/annooddities/{organism_grouping_key}/AnnoOddities.tar.gz",
+    params:
+        outdir=subpath(output["stats"], parent=True),
+    log:
+        "logs/annooddities/{organism_grouping_key}.log",
+    benchmark:
+        "logs/annooddities/{organism_grouping_key}.stats"
+    container:
+        "docker://gemygk/annooddities:v0.1.0"
+    shadow:
+        "minimal"
+    shell:
+        "annooddities "
+        "--genome_fasta {input.fasta} "
+        "--gff3_file {input.annotation} "
+        "--output_prefix {wildcards.organism_grouping_key} "
+        "&> {log} "
+        "&& "
+        "cp {wildcards.organism_grouping_key}.AnnoOddities.combined_statistics.json {output.stats} "
+        "&& "
+        "cp {wildcards.organism_grouping_key}.AnnoOddities.gff {output.gff} "
+        "&& "
+        "tar -cvf {output.archive} ./{wildcards.organism_grouping_key}.* ./oddity_files"
 
 
 rule download_galaxy_file:
@@ -126,5 +158,9 @@ rule target:
     input:
         expand(
             "results/annotation_qc/{organism_grouping_key}/agat.stats",
+            organism_grouping_key=all_grouping_keys,
+        ),
+        expand(
+            "results/annooddities/{organism_grouping_key}/AnnoOddities.combined_statistics.json",
             organism_grouping_key=all_grouping_keys,
         ),
