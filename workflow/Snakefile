@@ -31,9 +31,6 @@ def select_taxid(wildcards):
 # expected output
 
 qc_filenames = [
-    "agat.fix_cds_phases.gff",
-    "agat.stats.yaml",
-    "agat.stats",
     "omark_summary.json",
     "proteins.faa",
     "short_summary.specific.busco.json",
@@ -89,13 +86,13 @@ rule annotation_qc:
         mem="64GB",
         runtime=60,
     container:
-        "docker://quay.io/biocontainers/atol-qc-annotation:0.1.3--pyhdfd78af_0"
+        "docker://quay.io/biocontainers/atol-qc-annotation:0.1.4--pyhdfd78af_0"
     shell:
         "atol-qc-annotation "
         "--threads {threads} "
         "--mem {params.mem_gb} "
         "--fasta {input.fasta} "
-        "--gtf {input.annotation} "
+        "--annot {input.annotation} "
         "--lineage_dataset {params.lineage_dataset} "
         "--lineages_path {params.lineages_path} "
         "--db {input.db} "
@@ -121,7 +118,7 @@ rule annooddities:
     benchmark:
         "logs/annooddities/{organism_grouping_key}.stats"
     resources:
-        mem="2GB",
+        mem="8GB",
         runtime=20,
     container:
         "docker://gemygk/annooddities:v0.1.0"
@@ -161,7 +158,7 @@ rule target:
     default_target: True
     input:
         expand(
-            "results/annotation_qc/{organism_grouping_key}/agat.stats",
+            "results/annotation_qc/{organism_grouping_key}/omark_summary.json",
             organism_grouping_key=all_grouping_keys,
         ),
         expand(
