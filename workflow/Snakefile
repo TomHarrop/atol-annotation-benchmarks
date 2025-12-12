@@ -120,6 +120,9 @@ rule annooddities:
         "logs/annooddities/{organism_grouping_key}.log",
     benchmark:
         "logs/annooddities/{organism_grouping_key}.stats"
+    resources:
+        mem="2GB",
+        runtime=20,
     container:
         "docker://gemygk/annooddities:v0.1.0"
     shadow:
@@ -135,7 +138,8 @@ rule annooddities:
         "&& "
         "cp {wildcards.organism_grouping_key}.AnnoOddities.gff {output.gff} "
         "&& "
-        "tar -cvf {output.archive} ./{wildcards.organism_grouping_key}.* ./oddity_files"
+        'tar -cvf {output.archive} -I "gzip --best" '
+        "./{wildcards.organism_grouping_key}.* ./oddity_files &>> {log}"
 
 
 rule download_galaxy_file:
